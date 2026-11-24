@@ -1,0 +1,11 @@
+.card{min-height:245px}
+.cardReading{display:flex;align-items:center;justify-content:space-around;gap:18px;padding:22px 8px 18px}
+.tankIcon{width:94px;height:108px;position:relative;overflow:hidden;border:2px solid #69a0c5;border-radius:50% / 11%;background:linear-gradient(90deg,#f2f8fc,#e2f0f8 55%,#edf6fb);box-shadow:inset -9px 0 15px #3b779d1c}
+.tankIcon:before{content:'';position:absolute;z-index:4;top:-1px;left:-2px;right:-2px;height:20px;border:2px solid #69a0c5;border-radius:50%;background:#dcecf5}
+.tankIcon:after{content:'';position:absolute;z-index:5;left:-2px;right:-2px;bottom:-1px;height:18px;border:2px solid #69a0c5;border-radius:50%;border-top-color:transparent}
+.tankWater{position:absolute;z-index:2;bottom:0;left:0;right:0;background:linear-gradient(90deg,#308ac9,#55b3e4 52%,#2f8fce);transition:height .6s}
+.tankWater:before{content:'';position:absolute;left:0;right:0;top:-8px;height:16px;border-radius:50%;background:#75c7ea}
+.tankBands{position:absolute;z-index:3;inset:15px 0 8px;background:repeating-linear-gradient(to bottom,transparent 0 24%,#ffffff3b 25%,transparent 27%)}
+.tankOffline{filter:saturate(.45);opacity:.72}
+.readingText{min-width:110px}.readingText .level{font-size:44px;line-height:1;margin:0}.readingText span{display:block;font-size:12px;color:#7c92a5;margin:10px 0}.readingText small{font-size:12px;color:#1677bf}
+.card>.source{display:block;border-top:1px solid #e3ebf1;padding-top:14px}
