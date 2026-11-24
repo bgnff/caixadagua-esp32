@@ -1,0 +1,408 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AquaVisão — Central IHM</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body class="ihm-body">
+
+  <!-- CABEÇALHO IHM OPERACIONAL -->
+  <header class="ihm-topbar">
+    <div class="topbar-brand">
+      <span class="brand-icon">◈</span>
+      <div>
+        <strong>AQUA<span>VISÃO</span></strong>
+        <small>IHM INDUSTRIAL · 100 RESERVATÓRIOS</small>
+      </div>
+    </div>
+
+    <!-- CONTADORES RÁPIDOS DE STATUS -->
+    <div class="topbar-stats">
+      <div class="stat-pill">
+        <span>TOTAL</span>
+        <strong>100</strong>
+      </div>
+      <div class="stat-pill green">
+        <span>NORMAL</span>
+        <strong id="countNormal">--</strong>
+      </div>
+      <div class="stat-pill amber">
+        <span>ATENÇÃO</span>
+        <strong id="countAttention">--</strong>
+      </div>
+      <div class="stat-pill red">
+        <span>CRÍTICO / FALHA</span>
+        <strong id="countCritical">--</strong>
+      </div>
+    </div>
+
+    <!-- STATUS DO ESP32 REAL -->
+    <div class="topbar-esp">
+      <span class="status-dot yellow" id="espDot"></span>
+      <div>
+        <strong id="espStatusTitle">CAIXA-001 (ESP32)</strong>
+        <small id="espStatusSub">Aguardando telemetria</small>
+      </div>
+    </div>
+
+    <button class="btn outline sm" id="btnReset">↻ Reiniciar</button>
+  </header>
+
+  <!-- PAINEL PRINCIPAL SPLIT: MESTRE (LISTA) / DETALHE (OPERAÇÃO) -->
+  <main class="ihm-split-layout">
+
+    <!-- COLUNA ESQUERDA: LISTA DOS 100 RESERVATÓRIOS -->
+    <section class="master-panel">
+      <div class="panel-header">
+        <div class="search-row">
+          <input type="text" id="searchInput" placeholder="🔍 Buscar por ID (ex: CAIXA-001), nome ou local...">
+          <select id="filterStatus">
+            <option value="todos">Todos os Estados</option>
+            <option value="alto">Normal (60–100%)</option>
+            <option value="medio">Médio (20–60%)</option>
+            <option value="baixo">Baixo (≤ 20%)</option>
+            <option value="extremo">Acima do Limite (> 100%)</option>
+            <option value="transbordo">Transbordo (> 105%)</option>
+            <option value="offline">Sem Comunicação</option>
+            <option value="sensor_error">Erro de Sensor</option>
+            <option value="real">Apenas ESP32 Real</option>
+          </select>
+        </div>
+        <div class="panel-sub-row">
+          <span id="listCountLabel">100 reservatórios</span>
+          <select id="filterGeometry">
+            <option value="todos">Todos os Formatos</option>
+            <option value="tronco_cone">Tronco de Cone</option>
+            <option value="cilindro">Cilíndrico</option>
+            <option value="retangular">Retangular</option>
+          </select>
+        </div>
+      </div>
+
+      <!-- LISTA DE CARDS TÁTEIS -->
+      <div class="reservoir-list" id="reservoirList"></div>
+
+      <!-- PAGINAÇÃO DIRETA -->
+      <div class="pagination-bar">
+        <button class="btn outline sm" id="btnPrevPage">← Anterior</button>
+        <span id="pageIndicator">Página 1 de 9</span>
+        <button class="btn outline sm" id="btnNextPage">Próxima →</button>
+      </div>
+    </section>
+
+    <!-- COLUNA DIREITA: ESTAÇÃO OPERACIONAL DO RESERVATÓRIO SELECIONADO -->
+    <section class="detail-panel" id="detailSection">
+      
+      <!-- CABEÇALHO DO TANQUE SELECIONADO -->
+      <div class="detail-header">
+        <div>
+          <div class="detail-id-row">
+            <h2 id="detId">CAIXA-001</h2>
+            <span class="origin-tag" id="detOriginTag">ESP32 REAL</span>
+            <span class="status-chip green" id="detStatusChip">● Normal</span>
+          </div>
+          <p id="detSub">Reservatório Principal · Prédio Central · 500 L</p>
+        </div>
+        
+        <!-- BOTÕES DE AÇÃO RÁPIDA -->
+        <div class="action-buttons">
+          <button class="btn primary" id="btnOpenConfig">⚙ Calibrar / Medidas</button>
+          <button class="btn secondary" id="btnOpenOCR">📷 OCR Etiqueta</button>
+          <button class="btn outline" id="btnOpenSim">⚡ Testar / Simular</button>
+        </div>
+      </div>
+
+      <!-- PAINEL PRINCIPAL DE LEITURA (GAUGE + DADOS FÍSICOS) -->
+      <div class="detail-operational-grid">
+        
+        <!-- GAUGE DE NÍVEL VISUAL -->
+        <div class="gauge-box">
+          <div class="tank-graphic">
+            <div class="tank-scale">
+              <span>100%</span>
+              <span>75%</span>
+              <span>50%</span>
+              <span>25%</span>
+              <span>0%</span>
+            </div>
+            <div class="tank-frame">
+              <div class="tank-water" id="detWaterFill">
+                <div class="water-wave"></div>
+              </div>
+              <div class="sensor-indicator">
+                <span>HC-SR04</span>
+                <div class="sensor-ray" id="sensorRay"></div>
+              </div>
+            </div>
+          </div>
+          <div class="level-big-text">
+            <strong id="detLevelPct">72.0%</strong>
+            <small>ALTURA ÚTIL ESTIMADA</small>
+          </div>
+        </div>
+
+        <!-- QUADRO DE MEDIÇÕES E CALIBRAÇÃO -->
+        <div class="telemetry-box">
+          <div class="data-group">
+            <h3>Leituras Físicas de Nível</h3>
+            <div class="metrics-grid">
+              <div class="metric-card">
+                <span>Altura da Água (\(h\))</span>
+                <strong id="detWaterHeight">41,8 cm</strong>
+                <small>\(d_{vazio} - d\)</small>
+              </div>
+              <div class="metric-card">
+                <span>Distância do Sensor (\(d\))</span>
+                <strong id="detDistance">21,2 cm</strong>
+                <small>Eco ultrassônico</small>
+              </div>
+              <div class="metric-card highlight">
+                <span>Volume Estimado</span>
+                <strong id="detVolume">≈ 365 L</strong>
+                <small id="detVolumeGeom">Tronco de cone</small>
+              </div>
+              <div class="metric-card">
+                <span>Capacidade Nominal</span>
+                <strong id="detCapacity">500 L</strong>
+                <small>Placa de fábrica</small>
+              </div>
+            </div>
+          </div>
+
+          <!-- RESUMO DE CALIBRAÇÃO E SAÚDE -->
+          <div class="data-group">
+            <h3>Pontos de Calibração & Diagnóstico</h3>
+            <div class="calib-table">
+              <div><span>Nível Cheio (\(d_{cheio}\)):</span> <strong id="detCalFull">5,0 cm</strong></div>
+              <div><span>Nível Vazio (\(d_{vazio}\)):</span> <strong id="detCalEmpty">63,0 cm</strong></div>
+              <div><span>Altura Útil Máxima:</span> <strong id="detCalSpan">58,0 cm</strong></div>
+              <div><span>Formato Geométrico:</span> <strong id="detGeomName">Tronco de Cone</strong></div>
+              <div><span>Estado do Sensor:</span> <strong id="detSensorHealth">Operacional</strong></div>
+              <div><span>Última Atualização:</span> <strong id="detAgeText">há 2s</strong></div>
+            </div>
+          </div>
+
+          <!-- AVISO DE ENGENHARIA -->
+          <div class="engineering-notice">
+            <span>ℹ️ <strong>Medição:</strong> O volume é estimado por modelagem normalizada pela capacidade nominal. Dimensões externas não são dimensões internas exatas. Acima de 100% não é convertido em litros. Nenhuma bomba é atuada.</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- GRÁFICO HISTÓRICO 24H E LOG DE EVENTOS -->
+      <div class="detail-history-grid">
+        <div class="history-box">
+          <div class="box-head">
+            <strong>Histórico de Nível (Últimas 24h)</strong>
+            <small>Tendência da caixa selecionada</small>
+          </div>
+          <div class="chart-wrapper">
+            <svg viewBox="0 0 500 120" preserveAspectRatio="none">
+              <path class="gridline" d="M0 1H500 M0 30H500 M0 60H500 M0 90H500 M0 119H500"/>
+              <path id="chartArea" fill="rgba(37, 99, 235, 0.15)"/>
+              <path id="chartCurve" fill="none" stroke="#2563eb" stroke-width="2.5"/>
+            </svg>
+          </div>
+        </div>
+
+        <div class="events-box">
+          <div class="box-head">
+            <strong>Registro de Eventos</strong>
+            <small>Atividade recente</small>
+          </div>
+          <div class="events-list" id="eventsList"></div>
+        </div>
+      </div>
+
+    </section>
+  </main>
+
+  <!-- ============================================== -->
+  <!-- MODAL 1: CALIBRAÇÃO E MEDIDAS (SIMPLIFICADO)   -->
+  <!-- ============================================== -->
+  <dialog id="modalConfig" class="ihm-modal">
+    <div class="modal-box">
+      <div class="modal-title-bar">
+        <h3>Calibração & Cadastro — <span id="mConfigId">CAIXA-001</span></h3>
+        <button class="btn-close" data-close>×</button>
+      </div>
+
+      <form id="formConfig" class="modal-form">
+        <div class="form-row-2">
+          <label>
+            Nome do Reservatório
+            <input name="name" required>
+          </label>
+          <label>
+            Localização / Setor
+            <input name="location" required>
+          </label>
+        </div>
+
+        <div class="form-row-2">
+          <label>
+            Capacidade Nominal (Litros)
+            <input name="capacity" type="number" min="1" required>
+          </label>
+          <label>
+            Formato do Reservatório
+            <select name="geometry" id="mGeomSelect">
+              <option value="tronco_cone">Tronco de Cone (Cônico convencional)</option>
+              <option value="cilindro">Cilíndrico Reto</option>
+              <option value="retangular">Retangular / Prismático</option>
+            </select>
+          </label>
+        </div>
+
+        <!-- CAMPOS DIMENSIONAIS -->
+        <div class="geom-subfields" id="subCone">
+          <div class="form-row-3">
+            <label>Diâmetro Base (cm)<input name="base" type="number" step="0.1"></label>
+            <label>Diâmetro Topo (cm)<input name="top" type="number" step="0.1"></label>
+            <label>Altura Externa (cm)<input name="extHeight" type="number" step="0.1"></label>
+          </div>
+        </div>
+        <div class="geom-subfields hidden" id="subCil">
+          <label>Diâmetro Cilíndrico (cm)<input name="diameter" type="number" step="0.1"></label>
+        </div>
+        <div class="geom-subfields hidden" id="subRet">
+          <div class="form-row-2">
+            <label>Largura (cm)<input name="width" type="number" step="0.1"></label>
+            <label>Comprimento (cm)<input name="length" type="number" step="0.1"></label>
+          </div>
+        </div>
+
+        <!-- SEÇÃO DE CALIBRAÇÃO VAZIO / CHEIO -->
+        <div class="calib-section">
+          <div class="calib-head">
+            <strong>Calibração por Sensor HC-SR04:</strong>
+            <span id="mCalCurrentDist">Leitura atual: -- cm</span>
+          </div>
+          <div class="form-row-2">
+            <div class="cal-input-group">
+              <label>Distância VAZIO (\(d_{vazio}\) em cm)</label>
+              <div class="input-btn-join">
+                <input name="distEmpty" id="mDistEmpty" type="number" step="0.1" required>
+                <button type="button" class="btn secondary sm" id="btnCaptureEmpty">Capturar</button>
+              </div>
+            </div>
+            <div class="cal-input-group">
+              <label>Distância CHEIO (\(d_{cheio}\) em cm)</label>
+              <div class="input-btn-join">
+                <input name="distFull" id="mDistFull" type="number" step="0.1" required>
+                <button type="button" class="btn secondary sm" id="btnCaptureFull">Capturar</button>
+              </div>
+            </div>
+          </div>
+          <div class="cal-result-bar">
+            <span>Altura Útil Calculada: <strong id="mComputedSpan">58.0 cm</strong></span>
+          </div>
+        </div>
+
+        <div class="modal-footer">
+          <button type="button" class="btn outline" data-close>Cancelar</button>
+          <button type="submit" class="btn primary">Salvar Calibração</button>
+        </div>
+      </form>
+    </div>
+  </dialog>
+
+  <!-- ============================================== -->
+  <!-- MODAL 2: CADASTRO POR OCR (SIMPLIFICADO)       -->
+  <!-- ============================================== -->
+  <dialog id="modalOCR" class="ihm-modal">
+    <div class="modal-box">
+      <div class="modal-title-bar">
+        <h3>Reconhecimento de Etiqueta (OCR Câmera)</h3>
+        <button class="btn-close" data-close>×</button>
+      </div>
+      
+      <p class="modal-desc">Posicione a etiqueta do reservatório na câmera ou utilize o reconhecimento rápido de catálogo.</p>
+
+      <div class="ocr-body">
+        <div class="ocr-buttons">
+          <button class="btn secondary" id="btnOcrSimulate">⚡ Ler Etiqueta Padrão (Fortlev 500L)</button>
+          <button class="btn outline" id="btnOcrSimulate1000">⚡ Ler Etiqueta (1000L Cônica)</button>
+        </div>
+
+        <div class="ocr-detected-box">
+          <label>Texto da Etiqueta Detectado:</label>
+          <pre id="ocrRawText">Aguardando leitura de etiqueta...</pre>
+        </div>
+
+        <form id="formOcrConfirm" class="ocr-confirm-form">
+          <h4>Dados Sugeridos pelo OCR (Revisão Obrigatória):</h4>
+          <div class="form-row-3">
+            <label>Modelo<input id="ocrModel" value="Fortlev Cônica"></label>
+            <label>Capacidade (L)<input id="ocrCapacity" type="number" value="500"></label>
+            <label>Formato
+              <select id="ocrGeom">
+                <option value="tronco_cone">Tronco de Cone</option>
+                <option value="cilindro">Cilíndrico</option>
+                <option value="retangular">Retangular</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-row-3">
+            <label>Altura (cm)<input id="ocrH" type="number" value="58"></label>
+            <label>Base (cm)<input id="ocrBase" type="number" value="95"></label>
+            <label>Topo (cm)<input id="ocrTop" type="number" value="122"></label>
+          </div>
+          <button type="submit" class="btn primary w-full mt-2">✓ Confirmar e Aplicar ao Reservatório</button>
+        </form>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- ============================================== -->
+  <!-- MODAL 3: TESTES, SIMULAÇÃO E GATEWAY ESP32     -->
+  <!-- ============================================== -->
+  <dialog id="modalSim" class="ihm-modal">
+    <div class="modal-box">
+      <div class="modal-title-bar">
+        <h3>Testes de Telemetria & Simulação</h3>
+        <button class="btn-close" data-close>×</button>
+      </div>
+
+      <div class="sim-content">
+        <!-- SIMULAÇÃO DE NÍVEL DIRETO -->
+        <div class="sim-block">
+          <div class="sim-slider-row">
+            <label>Ajustar Nível da <strong id="simTargetId">CAIXA-001</strong>:</label>
+            <strong id="simLevelDisplay" class="sim-pct">72%</strong>
+          </div>
+          <input type="range" id="simSlider" min="0" max="110" value="72">
+          
+          <div class="quick-scenarios">
+            <button class="btn outline sm" data-sim="10">10% (Baixo)</button>
+            <button class="btn outline sm" data-sim="45">45% (Médio)</button>
+            <button class="btn outline sm" data-sim="85">85% (Normal)</button>
+            <button class="btn outline sm" data-sim="100">100% (Cheio)</button>
+            <button class="btn outline sm text-amber" data-sim="103">103% (Acima)</button>
+            <button class="btn outline sm text-red" data-sim="108">108% (Transbordo)</button>
+          </div>
+        </div>
+
+        <!-- FALHAS E TESTES DE SENSOR -->
+        <div class="sim-block">
+          <label>Testes de Falhas e Comunicação:</label>
+          <div class="quick-scenarios mt-1">
+            <button class="btn outline sm" id="btnSimOffline">Simular Perda de Rede</button>
+            <button class="btn outline sm" id="btnSimSensorError">Simular Erro de Sensor</button>
+            <button class="btn secondary sm" id="btnInjectRealESP">📡 Enviar Telemetria Real ESP32</button>
+          </div>
+        </div>
+
+        <div class="sim-footer">
+          <small>Aviso: Valores >100% e transbordo são demonstrativos de interface. Nenhuma bomba física é acionada.</small>
+          <button class="btn primary sm" data-close>Fechar</button>
+        </div>
+      </div>
+    </div>
+  </dialog>
+
+  <script src="app.js"></script>
+</body>
+</html>
